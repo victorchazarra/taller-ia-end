@@ -83,6 +83,7 @@ echo "🔥 Configurando firewall..."
 ufw allow 22/tcp
 ufw allow 5678/tcp
 ufw allow 9000/tcp
+ufw allow 8082/tcp
 ufw allow 3001/tcp
 echo "y" | ufw enable
 
@@ -90,6 +91,71 @@ echo "y" | ufw enable
 echo "📁 Creando directorio de trabajo..."
 mkdir -p /opt/docker-stacks
 cd /opt/docker-stacks
+
+# Crear stack de Evolution API funcionando
+echo "📱 Configurando Evolution API..."
+cat > docker-compose-evolution.yml << EOF
+version: '3.8'
+
+services:
+  # Base de datos PostgreSQL PRIMERO
+  postgres:
+    image: postgres:15-alpine
+    container_name: evolution-postgres
+    environment:
+      - POSTGRES_DB=evolution
+      - POSTGRES_USER=evolution
+      - POSTGRES_PASSWORD=evolution123
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U evolution"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: evolution-redis
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  # Evolution API (después de la BD)
+  evolution-api:
+    image: atendai/evolution-api:latest
+    container_name: evolution-api
+    ports:
+      - "8082:8080"
+    environment:
+      - SERVER_URL=http://$PUBLIC_IP:8082
+      - CORS_ORIGIN=*
+      - CORS_CREDENTIALS=true
+      - AUTHENTICATION_API_KEY=evolution-key-123
+      - DATABASE_ENABLED=true
+      - DATABASE_CONNECTION_URI=postgres://evolution:evolution123@postgres:5432/evolution
+      - REDIS_ENABLED=true
+      - REDIS_URI=redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - evolution_instances:/evolution/instances
+      - evolution_store:/evolution/store
+    restart: unless-stopped
+
+volumes:
+  evolution_instances:
+  evolution_store:
+  postgres_data:
+  redis_data:
+EOF
+
+# Iniciar Evolution API automáticamente
+echo "🚀 Iniciando Evolution API..."
+docker-compose -f docker-compose-evolution.yml up -d
 
 # Esperar a que Portainer esté listo
 echo "⏳ Esperando que Portainer se inicie..."
