@@ -38,6 +38,9 @@ User=root
 Environment=N8N_HOST=0.0.0.0
 Environment=N8N_PORT=5678
 Environment=N8N_PROTOCOL=http
+Environment=N8N_SECURE_COOKIE=false
+Environment=N8N_BASIC_AUTH_ACTIVE=false
+Environment=N8N_METRICS=false
 Environment=WEBHOOK_URL=http://$PUBLIC_IP:5678/
 ExecStart=/usr/bin/n8n start
 Restart=always
@@ -80,6 +83,7 @@ echo "🔥 Configurando firewall..."
 ufw allow 22/tcp
 ufw allow 5678/tcp
 ufw allow 9000/tcp
+ufw allow 3001/tcp
 echo "y" | ufw enable
 
 # Crear directorio para stacks
